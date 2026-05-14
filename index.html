@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>编程猫 · 让孩子享受创造的乐趣</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+SC:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <style>
+    /* ===== Reset ===== */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      font-family: 'Noto Sans SC', sans-serif;
+      background: #f0ece4;
+      color: #1a1a1a;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ===== Loading Screen ===== */
+    .loading-screen {
+      position: fixed; inset: 0; z-index: 100;
+      background: #f0ece4;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      transition: opacity 0.6s ease;
+    }
+    .loading-screen.hidden {
+      opacity: 0; pointer-events: none;
+    }
+    .loading-brand {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2rem; letter-spacing: 0.15em;
+      color: #1a1a1a; margin-bottom: 1.5rem;
+    }
+    .loading-bar-track {
+      width: 120px; height: 2px;
+      background: rgba(0,0,0,0.1);
+      border-radius: 1px; overflow: hidden;
+    }
+    .loading-bar-fill {
+      width: 0%; height: 100%;
+      background: #1a1a1a;
+      transition: width 0.3s ease;
+    }
+
+    /* ===== Video Layer ===== */
+    .video-layer {
+      position: fixed; inset: 0; z-index: 0;
+      background: #f0ece4;
+    }
+    .video-layer video {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      will-change: opacity;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+    }
+    .video-layer video.active { opacity: 1; }
+
+    /* ===== Navigation ===== */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 10;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 24px 40px;
+      pointer-events: auto;
+      mix-blend-mode: normal;
+    }
+    .nav-brand {
+      font-family: 'Noto Sans SC', sans-serif;
+      font-weight: 900; font-size: 1.1rem;
+      letter-spacing: 0.08em; color: #1a1a1a;
+    }
+    .nav-links {
+      display: flex; gap: 2.2rem;
+      list-style: none;
+    }
+    .nav-links a {
+      font-size: 0.8rem; font-weight: 400;
+      color: #1a1a1a; text-decoration: none;
+      letter-spacing: 0.04em;
+      opacity: 0.7; transition: opacity 0.25s ease;
+    }
+    .nav-links a:hover { opacity: 1; }
+    .nav-right { display: flex; gap: 1.5rem; }
+    .nav-right a {
+      font-size: 0.8rem; font-weight: 400;
+      color: #1a1a1a; text-decoration: none;
+      opacity: 0.7; transition: opacity 0.25s ease;
+    }
+    .nav-right a:hover { opacity: 1; }
+
+    /* ===== Content Layer ===== */
+    .content-layer {
+      position: fixed; inset: 0; z-index: 2;
+      pointer-events: none;
+    }
+
+    /* ===== Section (each full-screen text overlay) ===== */
+    .section {
+      position: absolute; inset: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto 1fr auto;
+      padding: 90px 40px 50px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+    }
+    .section.active { opacity: 1; }
+
+    /* Animatable text elements */
+    .section .anim-el {
+      transform: translateY(18px);
+      opacity: 0;
+      transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                  opacity 0.5s ease;
+    }
+    .section.active .anim-el {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    .section.active .anim-el:nth-child(1) { transition-delay: 0.05s; }
+    .section.active .anim-el:nth-child(2) { transition-delay: 0.15s; }
+
+    /* ---- Title Area (left, middle row) ---- */
+    .section-title-area {
+      grid-column: 1; grid-row: 2;
+      align-self: center; justify-self: start;
+    }
+    .title-en {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(3.2rem, 8.5vw, 7.5rem);
+      line-height: 0.92;
+      color: #1a1a1a;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .title-cn {
+      font-weight: 700;
+      font-size: clamp(0.95rem, 1.8vw, 1.35rem);
+      color: #1a1a1a;
+      margin-top: 0.7rem;
+      letter-spacing: 0.06em;
+    }
+
+    /* ---- Stats Area (right, middle row) ---- */
+    .section-stats {
+      grid-column: 2; grid-row: 2;
+      align-self: start;
+      justify-self: end;
+      text-align: right;
+      padding-top: 1.5rem;
+    }
+    .stat-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(1.1rem, 2vw, 1.6rem);
+      color: #1a1a1a;
+      letter-spacing: 0.06em;
+    }
+    .stat-desc {
+      font-weight: 300;
+      font-size: clamp(0.65rem, 0.9vw, 0.78rem);
+      color: #888;
+      max-width: 220px;
+      margin-left: auto;
+      line-height: 1.65;
+      margin-top: 0.35rem;
+    }
+
+    /* ---- Bottom Row ---- */
+    .section-bottom {
+      grid-column: 1 / -1; grid-row: 3;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-top: 1px solid rgba(0,0,0,0.12);
+      padding-top: 16px;
+    }
+    .bottom-left, .bottom-right { max-width: 260px; }
+    .bottom-right { text-align: right; }
+    .bottom-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(0.95rem, 1.5vw, 1.25rem);
+      color: #1a1a1a;
+      letter-spacing: 0.06em;
+    }
+    .bottom-desc {
+      font-weight: 300;
+      font-size: clamp(0.6rem, 0.8vw, 0.72rem);
+      color: #999;
+      line-height: 1.6;
+      margin-top: 0.2rem;
+    }
+
+    /* ===== Progress Dots ===== */
+    .progress-dots {
+      position: fixed; right: 28px; top: 50%;
+      transform: translateY(-50%);
+      z-index: 10;
+      display: flex; flex-direction: column;
+      gap: 10px;
+    }
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.18);
+      transition: all 0.35s ease;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+    .dot.active {
+      background: #1a1a1a;
+      transform: scale(1.5);
+    }
+
+    /* ===== Scroll Hint ===== */
+    .scroll-hint {
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 6px;
+      opacity: 1;
+      transition: opacity 0.5s ease;
+      pointer-events: none;
+    }
+    .scroll-hint.hidden { opacity: 0; }
+    .scroll-hint-text {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      color: rgba(0,0,0,0.4);
+      text-transform: uppercase;
+    }
+    .scroll-hint-line {
+      width: 1px; height: 24px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.35), transparent);
+      animation: scrollPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes scrollPulse {
+      0%, 100% { transform: scaleY(1); opacity: 0.6; }
+      50% { transform: scaleY(0.4); opacity: 0.2; }
+    }
+
+    @keyframes musicSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* ===== Final Section: centered layout ===== */
+    .section.section-final {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr auto;
+      text-align: center;
+      justify-items: center;
+    }
+    .section.section-final .section-title-area {
+      grid-column: 1; grid-row: 1;
+      align-self: center;
+      justify-self: center;
+      text-align: center;
+    }
+    .section.section-final .section-stats {
+      display: none;
+    }
+    .section.section-final .section-bottom {
+      grid-column: 1; grid-row: 2;
+      justify-content: center;
+      gap: 4rem;
+    }
+    .section.section-final .bottom-left,
+    .section.section-final .bottom-right {
+      text-align: center;
+    }
+
+    /* ===== Mobile Responsive ===== */
+    @media (max-width: 768px) {
+      nav { padding: 16px 20px; }
+      .nav-links { display: none; }
+      .section {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto auto;
+        padding: 75px 20px 30px;
+      }
+      .section-title-area {
+        grid-column: 1; grid-row: 2;
+        align-self: end;
+      }
+      .title-en { font-size: clamp(2.6rem, 12vw, 4rem); }
+      .section-stats {
+        grid-column: 1; grid-row: 3;
+        align-self: start;
+        justify-self: start;
+        text-align: left;
+        padding-top: 1rem;
+      }
+      .stat-desc { margin-left: 0; }
+      .section-bottom {
+        grid-column: 1; grid-row: 4;
+      }
+      .bottom-left, .bottom-right { max-width: 45%; }
+      .progress-dots { right: 14px; }
+      .dot { width: 6px; height: 6px; }
+    }
+
+    /* ===== Reduced motion ===== */
+    @media (prefers-reduced-motion: reduce) {
+      .video-layer video,
+      .section,
+      .section .anim-el,
+      .dot,
+      .scroll-hint-line {
+        transition: none !important;
+        animation: none !important;
+      }
+    }
+
+    /* iOS Safari 100vh fix */
+    @supports (-webkit-touch-callout: none) {
+      .video-layer, .content-layer, .section {
+        height: -webkit-fill-available;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Screen -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-brand">CODEMAO</div>
+    <div class="loading-bar-track">
+      <div class="loading-bar-fill" id="loadingBar"></div>
+    </div>
+  </div>
+
+  <!-- Video Layer -->
+  <div class="video-layer">
+    <video id="introVideo" class="active"
+      src="首_循环.mp4"
+      muted playsinline preload="auto" autoplay loop
+      webkit-playsinline="true"
+      x5-playsinline="true"></video>
+    <video id="mainVideo"
+      src="分段视频.mp4"
+      muted playsinline preload="auto"
+      webkit-playsinline="true"
+      x5-playsinline="true"></video>
+  </div>
+
+  <!-- Background Music -->
+  <audio id="bgMusic"
+    src="《Piano Melody in Children's Fantasy》海棠不言.mp3"
+    preload="auto" loop></audio>
+
+  <!-- Music Toggle Button -->
+  <button id="musicToggle" aria-label="Toggle music" style="
+    position: fixed; bottom: 24px; right: 28px; z-index: 20;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.12);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.25s ease;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  ">
+    <svg id="musicIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 18V5l12-2v13"/>
+      <circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+    </svg>
+  </button>
+
+  <!-- Navigation -->
+  <nav>
+    <div class="nav-brand">编程猫</div>
+    <ul class="nav-links">
+      <li><a href="#">About</a></li>
+      <li><a href="#">Courses</a></li>
+      <li><a href="#">Works</a></li>
+      <li><a href="#">FAQ</a></li>
+      <li><a href="#">Help</a></li>
+    </ul>
+    <div class="nav-right">
+      <a href="#">Say Hi</a>
+      <a href="#">Follow</a>
+    </div>
+  </nav>
+
+  <!-- Content Layer (7 sections: intro + 6 segments) -->
+  <div class="content-layer" id="contentLayer">
+
+    <!-- Section 0: Hero / Intro -->
+    <div class="section active" data-index="0">
+      <div class="section-title-area">
+        <div class="title-en anim-el">HELLO,<br>CODEMAO</div>
+        <div class="title-cn anim-el">编程猫，让孩子享受创造的乐趣</div>
+      </div>
+      <div class="section-stats anim-el">
+        <div class="stat-label">6 – 16 YEARS OLD</div>
+        <div class="stat-desc">面向6至16岁青少年，用图形化编程打开创造力的大门。</div>
+      </div>
+      <div class="section-bottom anim-el">
+        <div class="bottom-left">
+          <div class="bottom-desc">悄悄走进创造的世界，从今天开始，欢迎你认识我们。</div>
+        </div>
+        <div class="bottom-right">
+          <div class="bottom-label">2,000,000+ STUDENTS</div>
+          <div class="bottom-desc">来自全国各地的孩子，在这里发现编程的乐趣。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 1: 0 → 3.15s -->
+    <div class="section" data-index="1">
+      <div class="section-title-area">
+        <div class="title-en anim-el">BORN<br>TO<br>CREATE</div>
+        <div class="title-cn anim-el">每个孩子心里，都住着一个创造者</div>
+      </div>
+      <div class="section-stats anim-el">
+        <div class="stat-label">CREATIVITY / 100%</div>
+        <div class="stat-desc">每个孩子的心里，都住着一个想要改变世界的小宇宙。</div>
+      </div>
+      <div class="section-bottom anim-el">
+        <div class="bottom-left">
+          <div class="bottom-desc">从一个简单的想法开始，创造力会自己生长。</div>
+        </div>
+        <div class="bottom-right">
+          <div class="bottom-label">POTENTIAL / ∞</div>
+          <div class="bottom-desc">不设边界，让想象力自由奔跑。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: 3.15 → 6.30s -->
+    <div class="section" data-index="2">
+      <div class="section-title-area">
+        <div class="title-en anim-el">CURIOUS<br>MINDS</div>
+        <div class="title-cn anim-el">好奇心，是打开新世界的钥匙</div>
+      </div>
+      <div class="section-stats anim-el">
+        <div class="stat-label">WONDER / 1000+</div>
+        <div class="stat-desc">在编程的世界里，每一个为什么都是通往新大陆的船票。</div>
+      </div>
+      <div class="section-bottom anim-el">
+        <div class="bottom-left">
+          <div class="bottom-desc">不怕问为什么，每个答案背后都有新的世界。</div>
+        </div>
+        <div class="bottom-right">
+          <div class="bottom-label">EXPLORE / ON</div>
+          <div class="bottom-desc">好奇驱动探索，探索点燃热爱。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: 6.30 → 9.45s -->
+    <div class="section" data-index="3">
+      <div class="section-title-area">
+        <div class="title-en anim-el">BLOCKS<br>TO<br>MAGIC</div>
+        <div class="title-cn anim-el">拖拽之间，积木变魔法</div>
+      </div>
+      <div class="section-stats anim-el">
+        <div class="stat-label">BLOCKS / 50+</div>
+        <div class="stat-desc">拖拽之间，代码像搭积木一样垒起想象的城堡。</div>
+      </div>
+      <div class="section-bottom anim-el">
+        <div class="bottom-left">
+          <div class="bottom-desc">不需要写一行代码，拖拽就能让想法跳起舞来。</div>
+        </div>
+        <div class="bottom-right">
+          <div class="bottom-label">DIFFICULTY / 0</div>
+          <div class="bottom-desc">零门槛入门，像玩游戏一样学编程。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: 9.45 → 12.60s -->
+    <div class="section" data-index="4">
+      <div class="section-title-area">
+        <div class="title-en anim-el">EYES<br>THAT<br>SHINE</div>
+        <div class="title-cn anim-el">当作品动起来，眼里有光芒</div>
+      </div>
+      <div class="section-stats anim-el">
+        <div class="stat-label">JOY / 200%</div>
+        <div class="stat-desc">当自己的作品第一次动起来，那种喜悦无法言喻。</div>
+      </div>
+      <div class="section-bottom anim-el">
+        <div class="bottom-left">
+          <div class="bottom-desc">第一次看到代码跑起来，世界突然变得不一样。</div>
+        </div>
+        <div class="bottom-right">
+          <div class="bottom-label">PRIDE / MAX</div>
+          <div class="bottom-desc">每一次成功运行，都是一次小小的胜利。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 5: 12.60 → 15.75s -->
+    <div class="section" data-index="5">
+      <div class="section-title-area">
+        <div class="title-en anim-el">SHARE<br>THE<br>JOY</div>
+        <div class="title-cn anim-el">分享让创造的快乐翻倍</div>
+      </div>
+      <div class="section-stats anim-el">
+        <div class="stat-label">FRIENDS / ∞</div>
+        <div class="stat-desc">和伙伴们展示作品，创造的快乐会翻倍生长。</div>
+      </div>
+      <div class="section-bottom anim-el">
+        <div class="bottom-left">
+          <div class="bottom-desc">编程猫社区里，每个作品都值得被看见。</div>
+        </div>
+        <div class="bottom-right">
+          <div class="bottom-label">COMMUNITY / ACTIVE</div>
+          <div class="bottom-desc">一起创造，一起成长，一起改变世界。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 6: 15.75 → 18.93s (Final) -->
+    <div class="section section-final" data-index="6">
+      <div class="section-title-area">
+        <div class="title-en anim-el">CREATE<br>YOUR<br>FUTURE</div>
+        <div class="title-cn anim-el">创造属于每个孩子的未来</div>
+      </div>
+      <div class="section-stats anim-el">
+        <div class="stat-label">START / NOW</div>
+        <div class="stat-desc">编程猫，陪伴孩子从第一步走向无限可能。</div>
+      </div>
+      <div class="section-bottom anim-el">
+        <div class="bottom-left">
+          <div class="bottom-desc">编程猫，陪伴孩子从第一步走向无限可能。</div>
+        </div>
+        <div class="bottom-right">
+          <div class="bottom-label">FUTURE / YOURS</div>
+          <div class="bottom-desc">从这里开始，让孩子成为未来的创造者。</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Progress Dots -->
+  <div class="progress-dots" id="progressDots"></div>
+
+  <!-- Scroll Hint -->
+  <div class="scroll-hint" id="scrollHint">
+    <div class="scroll-hint-text">Scroll</div>
+    <div class="scroll-hint-line"></div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* ========== Elements ========== */
+      const introVideo = document.getElementById('introVideo');
+      const mainVideo  = document.getElementById('mainVideo');
+      const bgMusic    = document.getElementById('bgMusic');
+      const musicToggle = document.getElementById('musicToggle');
+      const musicIcon  = document.getElementById('musicIcon');
+      const loadingScreen = document.getElementById('loadingScreen');
+      const loadingBar = document.getElementById('loadingBar');
+      const scrollHint = document.getElementById('scrollHint');
+      const dotsContainer = document.getElementById('progressDots');
+      const allSections = document.querySelectorAll('.section');
+
+      /* ========== Config ========== */
+      const TOTAL_SECTIONS = 7;  // 0 = intro, 1-6 = main video segments
+
+      // Keyframe times in main video (seconds).
+      // Section N rests at KEYFRAMES[N].
+      // Section 0 uses intro loop, so KEYFRAMES[0] is unused.
+      const KEYFRAMES = [
+        -1,      // 0: intro loop
+        2.867,   // 1: 2秒26帧
+        5.767,   // 2: 5秒23帧
+        8.767,   // 3: 8秒23帧
+        11.833,  // 4: 11秒25帧
+        15.75,   // 5
+        18.90    // 6 (slightly before end to avoid black frame)
+      ];
+
+      /* ========== State ========== */
+      let currentSection = 0;
+      let isTransitioning = false;
+      let isReady = false;
+      let wheelAccum = 0;
+      let wheelTimer = null;
+
+      /* ========== Init Progress Dots ========== */
+      for (let i = 0; i < TOTAL_SECTIONS; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'dot' + (i === 0 ? ' active' : '');
+        dot.dataset.index = i;
+        dot.addEventListener('click', () => goToSection(i));
+        dotsContainer.appendChild(dot);
+      }
+
+      function updateDots() {
+        dotsContainer.querySelectorAll('.dot').forEach((d, i) => {
+          d.classList.toggle('active', i === currentSection);
+        });
+      }
+
+      /* ========== Loading ========== */
+      let checkStarted = false;
+      function startCheck() {
+        if (checkStarted) return;
+        checkStarted = true;
+        checkReady();
+      }
+
+      function checkReady() {
+        if (isReady) return;
+
+        // We need main video to be sufficiently buffered
+        const mainReady = mainVideo.readyState >= 3; // HAVE_FUTURE_DATA
+        const introReady = introVideo.readyState >= 2;
+
+        if (mainReady && introReady) {
+          loadingBar.style.width = '100%';
+          setTimeout(() => {
+            loadingScreen.classList.add('hidden');
+            isReady = true;
+            introVideo.play().catch(() => {});
+          }, 400);
+        } else {
+          // Estimate progress
+          let progress = 0;
+          if (mainVideo.buffered.length > 0 && isFinite(mainVideo.duration)) {
+            progress = (mainVideo.buffered.end(0) / mainVideo.duration) * 100;
+          }
+          loadingBar.style.width = Math.min(progress, 95) + '%';
+          requestAnimationFrame(checkReady);
+        }
+      }
+
+      // Start checking when metadata is loaded
+      mainVideo.addEventListener('loadedmetadata', startCheck);
+      // Fallback if already loaded
+      if (mainVideo.readyState >= 1) startCheck();
+      // Timeout fallback
+      setTimeout(() => {
+        if (!isReady) {
+          loadingBar.style.width = '100%';
+          setTimeout(() => {
+            loadingScreen.classList.add('hidden');
+            isReady = true;
+            introVideo.play().catch(() => {});
+          }, 300);
+        }
+      }, 5000);
+
+      /* ========== Video Playback Helpers ========== */
+
+      // Play main video forward from current position to targetTime, then callback
+      function playVideoForward(targetTime, onDone) {
+        let done = false;
+        let raf;
+        let safetyTimer;
+
+        const finish = () => {
+          if (done) return;
+          done = true;
+          clearTimeout(safetyTimer);
+          cancelAnimationFrame(raf);
+          mainVideo.pause();
+          mainVideo.currentTime = targetTime;
+          if (onDone) onDone();
+        };
+
+        mainVideo.play().catch(() => { finish(); });
+
+        const check = () => {
+          if (done) return;
+          if (mainVideo.currentTime >= targetTime - 0.08) {
+            finish();
+          } else {
+            raf = requestAnimationFrame(check);
+          }
+        };
+        raf = requestAnimationFrame(check);
+
+        // Safety timeout (in case video stalls)
+        safetyTimer = setTimeout(finish, 4000);
+      }
+
+      // Seek main video to a time, wait for seeked event, then callback
+      function seekVideoTo(targetTime, onDone) {
+        mainVideo.pause();
+        mainVideo.currentTime = targetTime;
+        if (onDone) {
+          mainVideo.addEventListener('seeked', function onSeeked() {
+            mainVideo.removeEventListener('seeked', onSeeked);
+            onDone();
+          }, { once: true });
+          // Safety fallback
+          setTimeout(onDone, 500);
+        }
+      }
+
+      /* ========== Section Transition ========== */
+
+      function goToSection(target) {
+        if (!isReady || isTransitioning) return;
+        if (target < 0 || target >= TOTAL_SECTIONS) return;
+        if (target === currentSection) return;
+
+        isTransitioning = true;
+        const prev = currentSection;
+        const forward = target > prev;
+
+        // 1) Fade out current section text
+        allSections[prev].classList.remove('active');
+
+        // 2) Handle scroll hint
+        if (target > 0) {
+          scrollHint.classList.add('hidden');
+        } else {
+          scrollHint.classList.remove('hidden');
+        }
+
+        // 3) Video transition
+        if (prev === 0 && target > 0) {
+          // From intro → main video
+          introVideo.classList.remove('active');
+          introVideo.pause();
+          mainVideo.currentTime = 0;
+          mainVideo.classList.add('active');
+
+          // Wait for seek to complete before playing
+          mainVideo.addEventListener('seeked', function onSeeked() {
+            mainVideo.removeEventListener('seeked', onSeeked);
+            playVideoForward(KEYFRAMES[target], () => {
+              finishTransition(target);
+            });
+          }, { once: true });
+          // Safety fallback if seeked doesn't fire
+          setTimeout(() => {
+            playVideoForward(KEYFRAMES[target], () => {
+              finishTransition(target);
+            });
+          }, 300);
+
+        } else if (target === 0) {
+          // Back to intro
+          mainVideo.classList.remove('active');
+          mainVideo.pause();
+          introVideo.classList.add('active');
+          introVideo.play().catch(() => {});
+
+          setTimeout(() => finishTransition(target), 350);
+
+        } else if (forward) {
+          // Forward within main video
+          // For multi-section jumps (e.g. clicking dots), seek directly
+          // to one segment before target, then play that last segment
+          if (target - prev > 1) {
+            const jumpTo = KEYFRAMES[target - 1];
+            mainVideo.currentTime = jumpTo;
+          }
+
+          playVideoForward(KEYFRAMES[target], () => {
+            finishTransition(target);
+          });
+
+        } else {
+          // Backward within main video — instant seek
+          seekVideoTo(KEYFRAMES[target], () => {
+            finishTransition(target);
+          });
+        }
+      }
+
+      function finishTransition(target) {
+        // Fade in new section text
+        allSections[target].classList.add('active');
+        currentSection = target;
+        updateDots();
+
+        // Unlock after text animation starts
+        setTimeout(() => {
+          isTransitioning = false;
+        }, 150);
+      }
+
+      /* ========== Wheel Handler (snap-scroll) ========== */
+      const WHEEL_THRESHOLD = 40;
+
+      document.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (!isReady || isTransitioning) return;
+
+        // Normalize deltaY across browsers (Firefox uses deltaMode 1=line, 2=page)
+        let dy = e.deltaY;
+        if (e.deltaMode === 1) dy *= 40;
+        else if (e.deltaMode === 2) dy *= 800;
+
+        wheelAccum += dy;
+
+        if (Math.abs(wheelAccum) >= WHEEL_THRESHOLD) {
+          const dir = wheelAccum > 0 ? 1 : -1;
+          wheelAccum = 0;
+          goToSection(currentSection + dir);
+        }
+
+        // Reset accumulator after pause
+        clearTimeout(wheelTimer);
+        wheelTimer = setTimeout(() => { wheelAccum = 0; }, 200);
+      }, { passive: false });
+
+      /* ========== Touch Handler (mobile swipe) ========== */
+      let touchStartY = 0;
+      let touchStartTime = 0;
+
+      document.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return; // single touch only
+        touchStartY = e.touches[0].clientY;
+        touchStartTime = Date.now();
+      }, { passive: true });
+
+      // Prevent iOS rubber-band bounce
+      document.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+      }, { passive: false });
+
+      document.addEventListener('touchend', (e) => {
+        if (!isReady || isTransitioning) return;
+        const deltaY = touchStartY - e.changedTouches[0].clientY;
+        const deltaTime = Date.now() - touchStartTime;
+
+        // Require minimum swipe distance and speed
+        if (Math.abs(deltaY) > 40 && deltaTime < 600) {
+          goToSection(currentSection + (deltaY > 0 ? 1 : -1));
+        }
+      }, { passive: true });
+
+      /* ========== Keyboard Handler ========== */
+      const NAV_KEYS = ['ArrowDown', 'ArrowUp', ' ', 'PageDown', 'PageUp', 'Home', 'End'];
+
+      document.addEventListener('keydown', (e) => {
+        if (NAV_KEYS.includes(e.key)) e.preventDefault();
+        if (!isReady || isTransitioning) return;
+
+        if (e.key === 'ArrowDown' || e.key === ' ' || e.key === 'PageDown') {
+          goToSection(currentSection + 1);
+        } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+          goToSection(currentSection - 1);
+        } else if (e.key === 'Home') {
+          goToSection(0);
+        } else if (e.key === 'End') {
+          goToSection(TOTAL_SECTIONS - 1);
+        }
+      });
+
+      /* ========== iOS touch to activate video ========== */
+      document.addEventListener('touchstart', () => {
+        if (introVideo.paused) introVideo.play().catch(() => {});
+      }, { once: true });
+
+      /* ========== Background Music ========== */
+      let musicPlaying = false;
+      bgMusic.volume = 0.35;
+
+      function startMusic() {
+        if (musicPlaying) return;
+        bgMusic.play().then(() => {
+          musicPlaying = true;
+          musicToggle.style.background = 'rgba(0,0,0,0.06)';
+          musicToggle.style.animation = 'musicSpin 3s linear infinite';
+        }).catch(() => {});
+      }
+
+      function toggleMusic() {
+        if (bgMusic.paused) {
+          bgMusic.play().then(() => {
+            musicPlaying = true;
+            musicToggle.style.animation = 'musicSpin 3s linear infinite';
+          }).catch(() => {});
+        } else {
+          bgMusic.pause();
+          musicPlaying = false;
+          musicToggle.style.animation = 'none';
+        }
+      }
+
+      musicToggle.addEventListener('click', toggleMusic);
+
+      // Auto-start music on first user interaction
+      const startMusicOnce = () => {
+        startMusic();
+        document.removeEventListener('wheel', startMusicOnce);
+        document.removeEventListener('touchstart', startMusicOnce);
+        document.removeEventListener('keydown', startMusicOnce);
+        document.removeEventListener('click', startMusicOnce);
+      };
+      document.addEventListener('wheel', startMusicOnce, { once: false, passive: true });
+      document.addEventListener('touchstart', startMusicOnce, { once: false, passive: true });
+      document.addEventListener('keydown', startMusicOnce, { once: false });
+      document.addEventListener('click', startMusicOnce, { once: false });
+
+      /* ========== Visibility change ========== */
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          if (musicPlaying) bgMusic.pause();
+        } else {
+          if (musicPlaying) bgMusic.play().catch(() => {});
+          if (currentSection === 0) {
+            introVideo.play().catch(() => {});
+          }
+        }
+      });
+
+    })();
+  </script>
+</body>
+</html>
